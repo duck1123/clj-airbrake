@@ -32,7 +32,7 @@
 
 (defn- xml-ex-response [exception & [message-prefix]]
   (let [{:keys [trace-elems] :as ex} (parse-exception exception)
-        message (str exception)]
+        message (.getMessage exception)]
     [:error
      [:class (first (split message #":"))]
      [:message (sanitize (.trim (str message-prefix " " message)))]
