@@ -2,6 +2,7 @@
   (:use [clj-airbrake.core] :reload)
   (:use clojure.data.zip.xml
         clojure.test
+        midje.sweet
         )
   (:require [clojure.zip :as zip]
             [clojure.xml :as xml]
@@ -63,32 +64,42 @@
          {"user-id" "23",
           "something-that-needs-escaping" "&lt;foo&gt; &quot;&amp;&quot;&apos; &lt;/foo&gt;"}
          [:request :session])
-    (testing "backtraces"
+    (fact "backtraces"
       (let [first-line (first (backtrace-lines notice-xml))]
-        (is (= "core.clj" (:file first-line)))
-        (is (= "clj-airbrake.test.core/fn[fn]" (:method first-line)))
-        (is (re-matches #"^\d+$" (:number first-line))))))
-  (testing "when no request is provided"
+        (:file first-line) => "core.clj"
+        (:method first-line) => "clj-airbrake.test.core/fn[fn]"
+        (re-matches #"^\d+$" (:number first-line)) => truthy
+       )))
+  (fact "when no request is provided"
     (let [notice-xml (make-notice-zip "my-api-key" "test" "/testapp" (Exception. "foo"))]
-      (is (empty? (xml-> notice-xml :request)))))
+      (xml-> notice-xml :request) => empty?))
   (testing "when a request is provided but no URL"
     (let [notice-xml-args ["my-api-key" "test" "/testapp" (Exception. "foo") {:action "foo"}]]
-      (is (thrown-with-msg? IllegalArgumentException #"url is required" (apply make-notice notice-xml-args)))))
-  (testing "when no session, cgi, or params are provided"
-    (let [notice-xml (make-notice-zip "my-api-key" "test" "/testapp" (Exception. "foo") {:url "foo" :session nil :params {}})]
-      (is (seq (xml-> notice-xml :request)))
-      (is (empty? (xml-> notice-xml :request :session)))
-      (is (empty? (xml-> notice-xml :request :params)))
-      (is (empty? (xml-> notice-xml :request :cgi-data)))))
+      (is (thrown-with-msg? IllegalArgumentException #"url is required"
+            (apply make-notice notice-xml-args)))))
+  (fact "when no session, cgi, or params are provided"
+    (let [notice-xml (make-notice-zip "my-api-key" "test" "/testapp"
+                                      (Exception. "foo")
+                                      {:url "foo" :session nil :params {}})]
+      (xml-> notice-xml :request)       =not=> empty?
+      (xml-> notice-xml :request :session)  => empty?
+      (xml-> notice-xml :request :params)   => empty?
+      (xml-> notice-xml :request :cgi-data) => empty?))
   (testing "when a message prefix is added"
-    (let [notice-xml (make-notice-zip "my-api-key" "test" "/testapp" (Exception. "Foo") {:url "foo"} "bar")]
+    (let [notice-xml (make-notice-zip "my-api-key" "test" "/testapp"
+                                      (Exception. "Foo") {:url "foo"} "bar")]
       (are [expected-text path] (= expected-text (text-in notice-xml path))
          "bar java.lang.Exception: Foo" [:error :message]))))
 
 (deftest test-send-notice
-  #_(expect (send-notice "<notice>...</notice>") => {:error-id "2285317953" :id "100" :url "http://sub.airbrakeapp.com/errors/42/notices/100"}
-          (fake (client/post
-                 "http://airbrakeapp.com/notifier_api/v2/notices" {:body "<notice>...</notice>", :content-type :xml, :accept :xml}) =>
+  (fact
+    (send-notice "<notice>...</notice>") =>
+    {:error-id "2285317953"
+     :id "100"
+     :url "http://sub.airbrakeapp.com/errors/42/notices/100"}
+    (fake (client/post
+           "http://airbrakeapp.com/notifier_api/v2/notices"
+           {:body "<notice>...</notice>", :content-type :xml, :accept :xml}) =>
 
-                 {:status 200, :headers {"server" "nginx/0.6.35"},
-                  :body "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<notice>\n  <error-id type=\"integer\">2285317953</error-id>\n  <url>http://sub.airbrakeapp.com/errors/42/notices/100</url>\n  <id type=\"integer\">100</id>\n</notice>\n"})))
+           {:status 200, :headers {"server" "nginx/0.6.35"},
+            :body "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<notice>\n  <error-id type=\"integer\">2285317953</error-id>\n  <url>http://sub.airbrakeapp.com/errors/42/notices/100</url>\n  <id type=\"integer\">100</id>\n</notice>\n"})))
