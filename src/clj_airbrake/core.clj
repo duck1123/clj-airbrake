@@ -17,27 +17,28 @@
 
 (defn get-version []
   (or (System/getProperty "clj-airbrake.version")
-      (let [props (doto (java.util.Properties.)
-                    (.load (jio/reader (jio/resource "META-INF/maven/clj-airbrake/clj-airbrake/pom.properties"))))]
+      (let [res (jio/resource "META-INF/maven/clj-airbrake/clj-airbrake/pom.properties")
+            props (doto (java.util.Properties.)
+                    (.load (jio/reader res)))]
         (.getProperty props "version"))))
 
-(def version (get-version))
-
-(defn- xml-ex-response [exception & [message-prefix]]
-  (let [{:keys [trace-elems]} (parse-exception exception)
-        message (str exception)]
-    [:error
-     [:class (first (split message #":"))]
-     [:message (.trim (str message-prefix " " message))]
-     (vec (cons :backtrace
-                (for [{:keys [file line], :as elem} trace-elems]
-                  [:line {:file file :number line :method (method-str elem)}])))]))
+(def version #_(get-version) "2.0.1-SNAPSHOT")
 
 (defn- sanitize
   "converts v to a string and escapes html entities"
   [v]
   (when v
     (hiccup.core/h (escape (name v) {\< "&lt;" \> "&gt;" \& "&amp;" \" "&quot;" \' "&apos;"}))))
+
+(defn- xml-ex-response [exception & [message-prefix]]
+  (let [{:keys [trace-elems] :as ex} (parse-exception exception)
+        message (str exception)]
+    [:error
+     [:class (first (split message #":"))]
+     [:message (sanitize (.trim (str message-prefix " " message)))]
+     (vec (cons :backtrace
+                (for [{:keys [file line], :as elem} trace-elems]
+                  [:line {:file file :number line :method (method-str elem)}])))]))
 
 (defn- map->xml-vars [hash-map sub-map-key]
   (when-let [sub-map (sub-map-key hash-map)]
@@ -77,7 +78,8 @@
   (-> xml-str java.io.StringReader. org.xml.sax.InputSource. xml/parse zip/xml-zip))
 
 (defn send-notice [notice & [host]]
-  (let [response (client/post (str "http://" (or host @api-host) "/notifier_api/v2/notices")
+  (let [url (str "http://" (or host @api-host) "/notifier_api/v2/notices")
+        response (client/post url
                               {:body notice :content-type :xml :accept :xml})
         body-xml (-> response :body parse-xml)
         text-at (fn [key] (first (zf/xml-> body-xml key zf/text)))]
@@ -86,8 +88,10 @@
      :url (text-at :url)}))
 
 (defn ^:dynamic notify [& args]
-  (try
-    (send-notice (apply make-notice args))
-    (catch RuntimeException ex
-      (println "\n\n\nerror sending notice\n\n\n")
-      (.printStackTrace ex))))
+  (let [notice (apply make-notice args)]
+    (try
+      (send-notice notice)
+      (catch RuntimeException ex
+        (println "\n\n\nerror sending notice\n\n\n")
+        (println notice)
+        #_(.printStackTrace ex)))))
