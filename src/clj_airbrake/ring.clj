@@ -25,9 +25,13 @@
      (fn [req]
        (try (handler req)
             (catch Exception e
-              (notify api-key
-                      environment-name
-                      (System/getProperty "user.dir")
-                      e
-                      (request-mapper req))
-              (throw e))))))
+              (let [dir (System/getProperty "user.dir")
+                    request (request-mapper req)]
+                ;; (println "exception caught")
+                ;; (println "api key: " api-key)
+                ;; (println "environment name: " environment-name)
+                ;; (println "dir: " dir)
+                ;; (println "request: " request)
+                (notify api-key environment-name dir
+                        e request)
+                (throw e)))))))
