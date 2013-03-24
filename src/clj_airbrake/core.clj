@@ -86,4 +86,8 @@
      :url (text-at :url)}))
 
 (defn ^:dynamic notify [& args]
-  (send-notice (apply make-notice args)))
+  (try
+    (send-notice (apply make-notice args))
+    (catch RuntimeException ex
+      (println "\n\n\nerror sending notice\n\n\n")
+      (.printStackTrace ex))))
