@@ -6,7 +6,7 @@
                  [ring/ring-core "0.3.6"]
                  [org.clojure/data.zip "0.1.0"]
                  [org.clojure/clojure "1.3.0"]
-                 [prxml "1.3.1"]]
+                 [hiccup "1.0.0"]]
   :profiles {:dev
              {:dependencies [[lein-clojars "0.6.0"]
                              [enlive "1.0.0-SNAPSHOT"]

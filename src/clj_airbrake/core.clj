@@ -1,12 +1,12 @@
 (ns clj-airbrake.core
   (:use (clj-stacktrace [core :only [parse-exception]] [repl :only [method-str]]))
   (:use [clojure.string :only (split escape)])
-  (:use [clojure.contrib.prxml])
   (:require [clj-http.client :as client]
             [clojure.zip :as zip]
             [clojure.xml :as xml]
             [clojure.java.io :as jio]
-            [clojure.data.zip.xml :as zf]))
+            [clojure.data.zip.xml :as zf]
+            hiccup.core))
 
 (def api-host
   "Host to send the errors to."
@@ -37,7 +37,7 @@
   "converts v to a string and escapes html entities"
   [v]
   (when v
-    (escape (as-str v) {\< "&lt;" \> "&gt;" \& "&amp;" \" "&quot;" \' "&apos;"})))
+    (hiccup.core/h (escape (name v) {\< "&lt;" \> "&gt;" \& "&amp;" \" "&quot;" \' "&apos;"}))))
 
 (defn- map->xml-vars [hash-map sub-map-key]
   (when-let [sub-map (sub-map-key hash-map)]
@@ -48,29 +48,30 @@
 
 (defn make-notice
   ([api-key environment-name project-root exception & [request message-prefix]]
-    (binding [*prxml-indent* 2]
-      (with-out-str
-        (prxml [:decl! "1.0"]
-               [:notice {:version "2.0"}
-                [:api-key api-key]
-                [:notifier
-                 [:name "clj-airbrake"]
-                 [:version version]
-                 [:url "http://github.com/leadtune/clj-airbrake"]]
-                (xml-ex-response exception message-prefix)
-                (when request
-                  (when-not (:url request)
-                    (throw (IllegalArgumentException. ":url is required when passing in a request")))
-                  [:request
-                   [:url (sanitize (:url request))]
-                   [:component (sanitize (:component request))]
-                   [:action (sanitize (:action request))]
-                   (map->xml-vars request :cgi-data)
-                   (map->xml-vars request :params)
-                   (map->xml-vars request :session)])
-                [:server-environment
-                 [:project-root (sanitize project-root)]
-                 [:environment-name (sanitize environment-name)]]])))))
+    ;; (binding [*prxml-indent* 2]
+     (hiccup.core/html ;; [:decl! "1.0"]
+      [:notice {:version "2.0"}
+       [:api-key api-key]
+       [:notifier
+        [:name "clj-airbrake"]
+        [:version version]
+        [:url "http://github.com/leadtune/clj-airbrake"]]
+       (xml-ex-response exception message-prefix)
+       (when request
+         (when-not (:url request)
+           (throw (IllegalArgumentException. ":url is required when passing in a request")))
+         [:request
+          [:url (sanitize (:url request))]
+          [:component (sanitize (:component request))]
+          [:action (sanitize (:action request))]
+          (map->xml-vars request :cgi-data)
+          (map->xml-vars request :params)
+          (map->xml-vars request :session)])
+       [:server-environment
+        [:project-root (sanitize project-root)]
+        [:environment-name (sanitize environment-name)]]])
+      ;; )
+    ))
 
 (defn- parse-xml [xml-str]
   (-> xml-str java.io.StringReader. org.xml.sax.InputSource. xml/parse zip/xml-zip))
