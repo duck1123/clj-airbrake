@@ -1,4 +1,4 @@
-(defproject clj-airbrake "2.0.1-SNAPSHOT"
+(defproject net.kronkltd/clj-airbrake "2.0.1-SNAPSHOT"
   :description "Airbrake Client"
   :min-lein-version "2.0.0"
   :dependencies [[clj-http "0.2.7"]
