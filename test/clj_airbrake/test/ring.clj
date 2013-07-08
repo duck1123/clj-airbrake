@@ -1,6 +1,7 @@
 (ns clj-airbrake.test.ring
   (:use [clj-airbrake.ring] :reload)
-  (:use clojure.test))
+  (:use clojure.test
+        midje.sweet))
 
 (def request {:remote-addr "127.0.0.1"
               :scheme :http
@@ -24,30 +25,30 @@
   (let [environment-name "production"]
     ((wrap-airbrake app "api-key" environment-name) req)))
 
-(deftest test-wrap-airbrake
-  (testing "returns response when no exception thrown"
+(fact "wrap-airbrake"
+  (fact "returns response when no exception thrown"
     (let [app (fn [req] "response")]
       (is (= "response"
              (call-app app request)))))
 
-  (testing "re-throws exception"
+  (fact "re-throws exception"
     (let [app (fn [req] (/ 1 0))]
       (binding [clj-airbrake.core/notify (fn [& args] nil)]
         (is (thrown? ArithmeticException
                      (call-app app request))))))
 
-  (testing "notifies airbrake with request params"
+  (fact "notifies airbrake with request params"
     (let [app (fn [req] (/ 1 0))
           notify-params (atom nil)
           airbrake-message (request-to-message request)]
-      (binding [clj-airbrake.core/notify (fn [& args] (reset! notify-params args))]
+      (fact [clj-airbrake.core/notify (fn [& args] (reset! notify-params args))]
         (try (call-app app request)
              (catch ArithmeticException e))
         (is (= airbrake-message
                (last @notify-params)))))))
 
 
-(deftest test-request-to-message
+(fact "request-to-message"
   (let [message (request-to-message request)]
     (is (= "http://localhost/"
            (:url message)))
