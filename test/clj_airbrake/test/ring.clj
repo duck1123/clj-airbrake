@@ -28,14 +28,12 @@
 (fact "wrap-airbrake"
   (fact "returns response when no exception thrown"
     (let [app (fn [req] "response")]
-      (is (= "response"
-             (call-app app request)))))
+      (call-app app request) => "response"))
 
   (fact "re-throws exception"
     (let [app (fn [req] (/ 1 0))]
       (binding [clj-airbrake.core/notify (fn [& args] nil)]
-        (is (thrown? ArithmeticException
-                     (call-app app request))))))
+        (call-app app request) => (throws ArithmeticException))))
 
   (fact "notifies airbrake with request params"
     (let [app (fn [req] (/ 1 0))
@@ -44,19 +42,16 @@
       (fact [clj-airbrake.core/notify (fn [& args] (reset! notify-params args))]
         (try (call-app app request)
              (catch ArithmeticException e))
-        (is (= airbrake-message
-               (last @notify-params)))))))
+        (last @notify-params) => airbrake-message))))
 
 
 (fact "request-to-message"
   (let [message (request-to-message request)]
-    (is (= "http://localhost/"
-           (:url message)))
-    (is (= "component"
-           (:component message)))
-    (is (= "action"
-           (:action message)))
-    (testing "params"
+    (:url message) => "http://localhost/"
+    (:component message) => "component"
+    (:action message) => "action"
+
+    (fact "params"
       (is (= {:query-string nil}
              (:params message)))
       (is (= {:query-string "blah=yes"}
